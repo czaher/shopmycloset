@@ -45,6 +45,15 @@ function migrate(database: ReturnType<typeof getDb>) {
   `);
 }
 
+export function parseImages(imagePath: string | null): string[] {
+  if (!imagePath) return [];
+  try {
+    const parsed = JSON.parse(imagePath);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return [imagePath]; // legacy single-string path
+}
+
 export type Item = {
   id: number;
   name: string;

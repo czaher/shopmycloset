@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import type { Item } from "@/lib/db";
+import { parseImages } from "@/lib/db";
 
 export default function ItemPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeImg, setActiveImg] = useState(0);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -56,7 +57,7 @@ export default function ItemPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="text-muted-brown font-serif text-lg">Loading...</p>
+        <p className="text-muted-brown text-lg">Loading...</p>
       </div>
     );
   }
@@ -64,11 +65,13 @@ export default function ItemPage() {
   if (!item) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-4">
-        <p className="font-serif text-xl text-warm-brown">Item not found.</p>
+        <p className="text-xl text-warm-brown">Item not found.</p>
         <Link href="/" className="text-terra underline text-sm">Back to closet</Link>
       </div>
     );
   }
+
+  const images = parseImages(item.image_path);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -82,26 +85,47 @@ export default function ItemPage() {
 
       <main className="max-w-4xl mx-auto px-6 py-10">
         <div className="grid md:grid-cols-2 gap-10 items-start">
-          {/* Image */}
-          <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-warm-beige">
-            {item.image_path ? (
-              <Image
-                src={item.image_path}
-                alt={item.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-6xl text-muted-brown">
-                🧥
-              </div>
-            )}
-            {item.status === "reserved" && (
-              <div className="absolute inset-0 bg-warm-brown/30 flex items-center justify-center">
-                <span className="bg-warm-brown text-cream text-sm font-medium px-4 py-2 rounded-full tracking-widest uppercase">
-                  Reserved
-                </span>
+          {/* Images */}
+          <div className="flex flex-col gap-3">
+            {/* Main image */}
+            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-warm-beige">
+              {images.length > 0 ? (
+                <Image
+                  key={images[activeImg]}
+                  src={images[activeImg]}
+                  alt={item.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-6xl text-muted-brown">
+                  🧥
+                </div>
+              )}
+              {item.status === "reserved" && (
+                <div className="absolute inset-0 bg-warm-brown/30 flex items-center justify-center">
+                  <span className="bg-warm-brown text-cream text-sm font-medium px-4 py-2 rounded-full tracking-widest uppercase">
+                    Reserved
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {images.map((src, i) => (
+                  <button
+                    key={src}
+                    onClick={() => setActiveImg(i)}
+                    className={`relative flex-shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-colors ${
+                      i === activeImg ? "border-terra" : "border-transparent hover:border-warm-beige"
+                    }`}
+                  >
+                    <Image src={src} alt={`Photo ${i + 1}`} fill className="object-cover" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -162,9 +186,7 @@ export default function ItemPage() {
                       />
                     </div>
 
-                    {error && (
-                      <p className="text-red-500 text-sm">{error}</p>
-                    )}
+                    {error && <p className="text-red-500 text-sm">{error}</p>}
 
                     <button
                       type="submit"

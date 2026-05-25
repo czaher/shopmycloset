@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { db, type Item } from '@/lib/db'
+import { db, type Item, parseImages } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,6 +75,7 @@ function StoreFront({ items }: { items: Item[] }) {
 
 function ItemCard({ item }: { item: Item }) {
   const isReserved = item.status === 'reserved'
+  const images = parseImages(item.image_path)
 
   return (
     <Link
@@ -83,9 +84,9 @@ function ItemCard({ item }: { item: Item }) {
     >
       {/* Image */}
       <div className='relative aspect-[3/4] bg-warm-beige overflow-hidden'>
-        {item.image_path ? (
+        {images[0] ? (
           <Image
-            src={item.image_path}
+            src={images[0]}
             alt={item.name}
             fill
             className='object-cover transition-transform duration-300 group-hover:scale-105'
@@ -95,6 +96,11 @@ function ItemCard({ item }: { item: Item }) {
           <div className='absolute inset-0 flex items-center justify-center text-muted-brown text-4xl'>
             🧥
           </div>
+        )}
+        {images.length > 1 && !isReserved && (
+          <span className='absolute top-2 right-2 bg-black/40 text-white text-[10px] px-1.5 py-0.5 rounded-full'>
+            {images.length}
+          </span>
         )}
         {isReserved && (
           <div className='absolute inset-0 bg-warm-brown/30 flex items-center justify-center'>

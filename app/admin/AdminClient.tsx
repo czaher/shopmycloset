@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { Item, Claim } from "@/lib/db";
+import { parseImages } from "@/lib/db";
 
 const CATEGORIES = ["Tops", "Bottoms", "Dresses", "Outerwear", "Shoes", "Accessories", "Other"];
 const SIZES = ["XS", "S", "M", "L", "XL", "XXL", "0", "2", "4", "6", "8", "10", "12", "14", "One size"];
@@ -22,9 +23,9 @@ export default function AdminClient({
   const [claims] = useState(initialClaims);
   const [tab, setTab] = useState<"items" | "claims">("items");
   const [showForm, setShowForm] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -32,25 +33,45 @@ export default function AdminClient({
     description: "",
     size: "",
     category: "",
-    image_path: "",
-    previewUrl: "",
+    images: [] as string[],      // uploaded paths
+    uploading: [] as string[],   // filenames currently uploading
   });
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
+  async function uploadFile(file: File): Promise<string | null> {
+    const tempId = `${file.name}-${Date.now()}`;
+    setForm((p) => ({ ...p, uploading: [...p.uploading, tempId] }));
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+    setForm((p) => ({ ...p, uploading: p.uploading.filter((id) => id !== tempId) }));
+    if (!res.ok) return null;
     const data = await res.json();
-    setUploading(false);
-    if (res.ok) {
-      setForm((prev) => ({ ...prev, image_path: data.path, previewUrl: data.path }));
-    } else {
-      setFormError(data.error || "Upload failed.");
-    }
+    return data.path as string;
   }
+
+  async function handleFiles(files: FileList | File[]) {
+    const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!arr.length) return;
+    const paths = await Promise.all(arr.map(uploadFile));
+    const good = paths.filter(Boolean) as string[];
+    if (good.length) setForm((p) => ({ ...p, images: [...p.images, ...good] }));
+    else setFormError("One or more uploads failed.");
+  }
+
+  function handleRemoveImage(path: string) {
+    setForm((p) => ({ ...p, images: p.images.filter((img) => img !== path) }));
+  }
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFiles(e.dataTransfer.files);
+  }, []);
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -65,7 +86,7 @@ export default function AdminClient({
         description: form.description,
         size: form.size,
         category: form.category,
-        image_path: form.image_path,
+        image_path: form.images.length ? JSON.stringify(form.images) : null,
       }),
     });
 
@@ -78,9 +99,8 @@ export default function AdminClient({
     }
 
     setItems((prev) => [data, ...prev]);
-    setForm({ name: "", description: "", size: "", category: "", image_path: "", previewUrl: "" });
+    setForm({ name: "", description: "", size: "", category: "", images: [], uploading: [] });
     setShowForm(false);
-    if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleDelete(id: number) {
@@ -105,6 +125,8 @@ export default function AdminClient({
     await fetch("/api/admin/login", { method: "DELETE" });
     router.push("/admin/login");
   }
+
+  const isUploading = form.uploading.length > 0;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -166,36 +188,74 @@ export default function AdminClient({
               >
                 <h2 className="font-serif text-lg text-warm-brown sm:col-span-2">New item</h2>
 
-                {/* Image upload */}
+                {/* Drag-and-drop image upload */}
                 <div className="sm:col-span-2">
                   <label className="text-xs font-medium text-muted-brown uppercase tracking-wide block mb-2">
-                    Photo
+                    Photos
                   </label>
-                  <div className="flex items-start gap-4">
-                    <div
-                      onClick={() => fileRef.current?.click()}
-                      className="w-24 h-32 rounded-xl border-2 border-dashed border-warm-beige bg-warm-beige/40 flex items-center justify-center cursor-pointer hover:border-terra transition-colors overflow-hidden relative flex-shrink-0"
-                    >
-                      {form.previewUrl ? (
-                        <Image src={form.previewUrl} alt="Preview" fill className="object-cover rounded-xl" />
-                      ) : uploading ? (
-                        <span className="text-xs text-muted-brown">Uploading...</span>
-                      ) : (
-                        <span className="text-muted-brown text-2xl">+</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-brown mt-2">
-                      <p>Tap to upload a photo.</p>
-                      <p className="mt-1">JPG, PNG, or WEBP.</p>
-                    </div>
+
+                  {/* Drop zone */}
+                  <div
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onDragLeave={() => setDragOver(false)}
+                    onClick={() => fileRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-xl px-6 py-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+                      dragOver
+                        ? "border-terra bg-terra/5"
+                        : "border-warm-beige bg-warm-beige/30 hover:border-terra/60"
+                    }`}
+                  >
+                    {isUploading ? (
+                      <p className="text-sm text-muted-brown">
+                        Uploading {form.uploading.length} {form.uploading.length === 1 ? "photo" : "photos"}...
+                      </p>
+                    ) : (
+                      <>
+                        <svg className="w-8 h-8 text-muted-brown/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        <p className="text-sm text-muted-brown">
+                          Drop photos here or <span className="text-terra underline">click to browse</span>
+                        </p>
+                        <p className="text-xs text-muted-brown/60">JPG, PNG, WEBP · multiple at once is fine</p>
+                      </>
+                    )}
                   </div>
+
                   <input
                     ref={fileRef}
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
-                    onChange={handleFileChange}
+                    onChange={(e) => e.target.files && handleFiles(e.target.files)}
                   />
+
+                  {/* Thumbnails */}
+                  {form.images.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      {form.images.map((path, i) => (
+                        <div key={path} className="relative group">
+                          <div className="w-20 h-24 rounded-xl overflow-hidden border border-warm-beige bg-warm-beige relative">
+                            <Image src={path} alt={`Photo ${i + 1}`} fill className="object-cover" />
+                            {i === 0 && (
+                              <span className="absolute bottom-0 left-0 right-0 text-center text-[10px] bg-warm-brown/70 text-cream py-0.5">
+                                cover
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(path)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-warm-brown text-cream rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Name */}
@@ -262,10 +322,10 @@ export default function AdminClient({
                 <div className="sm:col-span-2 flex justify-end">
                   <button
                     type="submit"
-                    disabled={saving || uploading}
+                    disabled={saving || isUploading}
                     className="bg-terra hover:bg-terra-dark text-cream text-sm font-medium px-6 py-2.5 rounded-xl transition-colors disabled:opacity-60"
                   >
-                    {saving ? "Saving..." : "Add to closet"}
+                    {saving ? "Saving..." : isUploading ? "Uploading..." : "Add to closet"}
                   </button>
                 </div>
               </form>
@@ -278,55 +338,63 @@ export default function AdminClient({
               </p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white border border-warm-beige rounded-2xl overflow-hidden"
-                  >
-                    <div className="relative aspect-[3/4] bg-warm-beige">
-                      {item.image_path ? (
-                        <Image src={item.image_path} alt={item.name} fill className="object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-3xl text-muted-brown">
-                          🧥
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="text-sm font-medium text-warm-brown truncate">{item.name}</p>
-                      <div className="flex gap-1.5 mt-1 flex-wrap">
-                        {item.size && (
-                          <span className="text-xs text-muted-brown bg-warm-beige px-2 py-0.5 rounded-full">
-                            {item.size}
+                {items.map((item) => {
+                  const images = parseImages(item.image_path);
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white border border-warm-beige rounded-2xl overflow-hidden"
+                    >
+                      <div className="relative aspect-[3/4] bg-warm-beige">
+                        {images[0] ? (
+                          <Image src={images[0]} alt={item.name} fill className="object-cover" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-3xl text-muted-brown">
+                            🧥
+                          </div>
+                        )}
+                        {images.length > 1 && (
+                          <span className="absolute top-2 right-2 bg-warm-brown/70 text-cream text-[10px] px-1.5 py-0.5 rounded-full">
+                            {images.length} photos
                           </span>
                         )}
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${
-                            item.status === "available"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-warm-beige text-muted-brown"
-                          }`}
-                        >
-                          {item.status}
-                        </span>
                       </div>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleToggleStatus(item)}
-                          className="flex-1 text-xs border border-warm-beige rounded-lg py-1.5 text-muted-brown hover:border-terra hover:text-terra transition-colors"
-                        >
-                          {item.status === "available" ? "Mark reserved" : "Mark available"}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-xs border border-warm-beige rounded-lg px-2.5 py-1.5 text-muted-brown hover:border-red-300 hover:text-red-400 transition-colors"
-                        >
-                          ✕
-                        </button>
+                      <div className="p-3">
+                        <p className="text-sm font-medium text-warm-brown truncate">{item.name}</p>
+                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                          {item.size && (
+                            <span className="text-xs text-muted-brown bg-warm-beige px-2 py-0.5 rounded-full">
+                              {item.size}
+                            </span>
+                          )}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              item.status === "available"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-warm-beige text-muted-brown"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => handleToggleStatus(item)}
+                            className="flex-1 text-xs border border-warm-beige rounded-lg py-1.5 text-muted-brown hover:border-terra hover:text-terra transition-colors"
+                          >
+                            {item.status === "available" ? "Mark reserved" : "Mark available"}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="text-xs border border-warm-beige rounded-lg px-2.5 py-1.5 text-muted-brown hover:border-red-300 hover:text-red-400 transition-colors"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
