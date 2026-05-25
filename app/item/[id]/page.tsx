@@ -95,7 +95,7 @@ export default function ItemPage() {
       <main className='max-w-4xl mx-auto px-6 py-10'>
         <div className='grid md:grid-cols-2 gap-10 items-start'>
           {/* Images */}
-          <div className='flex flex-col gap-3'>
+          <div className='flex flex-col gap-3 min-w-0'>
             {/* Main image */}
             <div className='relative aspect-[3/4] rounded-2xl overflow-hidden bg-warm-beige'>
               {images.length > 0 ? (
@@ -123,7 +123,7 @@ export default function ItemPage() {
 
             {/* Thumbnail strip */}
             {images.length > 1 && (
-              <div className='flex gap-2 overflow-x-auto pb-1'>
+              <div className='flex gap-2 overflow-x-auto pb-1 w-full'>
                 {images.map((src, i) => (
                   <button
                     key={src}
