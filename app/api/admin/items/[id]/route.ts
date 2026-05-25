@@ -9,9 +9,24 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const { id } = await params;
-  const { status } = await req.json();
-  db().prepare("UPDATE items SET status = ? WHERE id = ?").run(status, id);
-  return NextResponse.json({ success: true });
+  const body = await req.json();
+
+  if (body.status !== undefined && Object.keys(body).length === 1) {
+    db().prepare("UPDATE items SET status = ? WHERE id = ?").run(body.status, id);
+    return NextResponse.json({ success: true });
+  }
+
+  const { name, description, size, category, image_path, status } = body;
+  if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
+
+  db()
+    .prepare(
+      "UPDATE items SET name = ?, description = ?, size = ?, category = ?, image_path = ?, status = ? WHERE id = ?"
+    )
+    .run(name, description || null, size || null, category || null, image_path ?? null, status, id);
+
+  const updated = db().prepare("SELECT * FROM items WHERE id = ?").get(id);
+  return NextResponse.json(updated);
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

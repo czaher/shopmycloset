@@ -47,6 +47,7 @@ export default function AdminClient({
   const [claims] = useState(initialClaims)
   const [tab, setTab] = useState<'items' | 'claims'>('items')
   const [showForm, setShowForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [dragOver, setDragOver] = useState(false)
@@ -57,8 +58,8 @@ export default function AdminClient({
     description: '',
     size: '',
     category: '',
-    images: [] as string[], // uploaded paths
-    uploading: [] as string[], // filenames currently uploading
+    images: [] as string[],
+    uploading: [] as string[],
   })
 
   async function uploadFile(file: File): Promise<string | null> {
@@ -100,10 +101,52 @@ export default function AdminClient({
     setDragOver(true)
   }, [])
 
+  function openEditForm(item: Item) {
+    setEditingItem(item)
+    setForm({
+      name: item.name,
+      description: item.description ?? '',
+      size: item.size ?? '',
+      category: item.category ?? '',
+      images: parseImages(item.image_path),
+      uploading: [],
+    })
+    setFormError('')
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setEditingItem(null)
+    setForm({ name: '', description: '', size: '', category: '', images: [], uploading: [] })
+    setFormError('')
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setFormError('')
     setSaving(true)
+
+    if (editingItem) {
+      const res = await fetch(`/api/admin/items/${editingItem.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description,
+          size: form.size,
+          category: form.category,
+          image_path: form.images.length ? JSON.stringify(form.images) : null,
+          status: editingItem.status,
+        }),
+      })
+      const data = await res.json()
+      setSaving(false)
+      if (!res.ok) { setFormError(data.error || 'Failed to save.'); return }
+      setItems((prev) => prev.map((i) => (i.id === editingItem.id ? data : i)))
+      closeForm()
+      return
+    }
 
     const res = await fetch('/api/admin/items', {
       method: 'POST',
@@ -126,15 +169,7 @@ export default function AdminClient({
     }
 
     setItems((prev) => [data, ...prev])
-    setForm({
-      name: '',
-      description: '',
-      size: '',
-      category: '',
-      images: [],
-      uploading: [],
-    })
-    setShowForm(false)
+    closeForm()
   }
 
   async function handleDelete(id: number) {
@@ -220,7 +255,7 @@ export default function AdminClient({
                 {items.filter((i) => i.status === 'available').length} available
               </p>
               <button
-                onClick={() => setShowForm(!showForm)}
+                onClick={() => showForm ? closeForm() : setShowForm(true)}
                 className='bg-terra hover:bg-terra-dark text-cream text-sm font-medium px-5 py-2.5 rounded-xl transition-colors'
               >
                 {showForm ? 'Cancel' : '+ Add item'}
@@ -234,7 +269,7 @@ export default function AdminClient({
                 className='bg-white border border-warm-beige rounded-2xl p-6 mb-8 grid sm:grid-cols-2 gap-5'
               >
                 <h2 className='font-serif text-lg text-warm-brown sm:col-span-2'>
-                  New item
+                  {editingItem ? 'Edit item' : 'New item'}
                 </h2>
 
                 {/* Drag-and-drop image upload */}
@@ -417,7 +452,7 @@ export default function AdminClient({
                       ? 'Saving...'
                       : isUploading
                         ? 'Uploading...'
-                        : 'Add to closet'}
+                        : editingItem ? 'Save changes' : 'Add to closet'}
                   </button>
                 </div>
               </form>
@@ -484,6 +519,12 @@ export default function AdminClient({
                             {item.status === 'available'
                               ? 'Mark reserved'
                               : 'Mark available'}
+                          </button>
+                          <button
+                            onClick={() => openEditForm(item)}
+                            className='text-xs border border-warm-beige rounded-lg px-2.5 py-1.5 text-muted-brown hover:border-terra hover:text-terra transition-colors'
+                          >
+                            Edit
                           </button>
                           <button
                             onClick={() => handleDelete(item.id)}
