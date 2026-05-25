@@ -7,12 +7,13 @@ import type { Item, Claim } from '@/lib/types'
 import { parseImages } from '@/lib/types'
 
 const CATEGORIES = [
-  'Tops',
-  'Bottoms',
-  'Dresses',
-  'Outerwear',
+  'T-Shirts',
+  'Long-Sleeves',
+  'Sweaters',
+  'Sweatshirts',
+  'Pants',
+  'Coats',
   'Shoes',
-  'Accessories',
   'Other',
 ]
 const SIZES = [
