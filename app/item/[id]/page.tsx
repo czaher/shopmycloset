@@ -71,7 +71,7 @@ export default function ItemPage() {
       <div className='min-h-screen bg-cream flex flex-col items-center justify-center gap-4'>
         <p className='text-xl text-warm-brown'>Item not found.</p>
         <Link href='/' className='text-terra underline text-sm'>
-          Back to closet
+          more stuff
         </Link>
       </div>
     )
@@ -87,7 +87,7 @@ export default function ItemPage() {
             href='/'
             className='text-sm text-muted-brown hover:text-terra transition-colors'
           >
-            ← Back to closet
+            ← more stuff
           </Link>
         </div>
       </header>
