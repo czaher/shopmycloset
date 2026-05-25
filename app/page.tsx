@@ -1,27 +1,9 @@
-import Link from 'next/link'
-import Image from 'next/image'
-import { db, type Item, parseImages } from '@/lib/db'
+import { db, type Item } from '@/lib/db'
+import StoreFront from './StoreFront'
 
 export const dynamic = 'force-dynamic'
 
-const CATEGORIES = [
-  'All',
-  'Tops',
-  'Bottoms',
-  'Dresses',
-  'Outerwear',
-  'Shoes',
-  'Accessories',
-  'Other',
-]
-
-export default function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ category?: string; status?: string }>
-}) {
-  // searchParams is a promise in Next.js 15 — but for server components we can use it directly
-  // We'll handle filtering via URL params on client side via a thin wrapper
+export default function Home() {
   const items = db()
     .prepare('SELECT * FROM items ORDER BY created_at DESC')
     .all() as Item[]
@@ -30,7 +12,6 @@ export default function Home({
 
   return (
     <div className='min-h-screen bg-cream'>
-      {/* Header */}
       <header className='border-b border-warm-beige bg-cream sticky top-0 z-10'>
         <div className='max-w-5xl mx-auto px-6 py-5 flex items-center justify-between'>
           <div>
@@ -57,76 +38,5 @@ export default function Home({
         )}
       </main>
     </div>
-  )
-}
-
-function StoreFront({ items }: { items: Item[] }) {
-  return (
-    <div>
-      {/* Grid */}
-      <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5'>
-        {items.map((item) => (
-          <ItemCard key={item.id} item={item} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ItemCard({ item }: { item: Item }) {
-  const isReserved = item.status === 'reserved'
-  const images = parseImages(item.image_path)
-
-  return (
-    <Link
-      href={`/item/${item.id}`}
-      className={`group block rounded-2xl overflow-hidden bg-white border border-warm-beige transition-shadow hover:shadow-md ${isReserved ? 'opacity-70' : ''}`}
-    >
-      {/* Image */}
-      <div className='relative aspect-[3/4] bg-warm-beige overflow-hidden'>
-        {images[0] ? (
-          <Image
-            src={images[0]}
-            alt={item.name}
-            fill
-            className='object-cover transition-transform duration-300 group-hover:scale-105'
-            sizes='(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw'
-          />
-        ) : (
-          <div className='absolute inset-0 flex items-center justify-center text-muted-brown text-4xl'>
-            🧥
-          </div>
-        )}
-        {images.length > 1 && !isReserved && (
-          <span className='absolute top-2 right-2 bg-black/40 text-white text-[10px] px-1.5 py-0.5 rounded-full'>
-            {images.length}
-          </span>
-        )}
-        {isReserved && (
-          <div className='absolute inset-0 bg-warm-brown/30 flex items-center justify-center'>
-            <span className='bg-warm-brown text-cream text-xs font-medium px-3 py-1 rounded-full tracking-widest uppercase'>
-              Reserved
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className='p-3'>
-        <p className='font-medium text-warm-brown text-sm leading-snug truncate'>
-          {item.name}
-        </p>
-        <div className='flex items-center gap-2 mt-1'>
-          {item.size && (
-            <span className='text-xs text-muted-brown bg-warm-beige px-2 py-0.5 rounded-full'>
-              {item.size}
-            </span>
-          )}
-          {item.category && (
-            <span className='text-xs text-muted-brown'>{item.category}</span>
-          )}
-        </div>
-      </div>
-    </Link>
   )
 }
