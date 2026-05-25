@@ -176,7 +176,7 @@ export default function ItemPage() {
               <form onSubmit={handleClaim} className='flex flex-col gap-4'>
                 <div className='border-t border-warm-beige pt-5'>
                   <h2 className='font-serif text-lg text-warm-brown mb-4'>
-                    Call Dibs
+                    ¿Quieres?
                   </h2>
 
                   <div className='flex flex-col gap-3'>
