@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import type { Item, Claim } from '@/lib/db'
-import { parseImages } from '@/lib/db'
+import type { Item, Claim } from '@/lib/types'
+import { parseImages } from '@/lib/types'
 
 const CATEGORIES = [
   'Tops',

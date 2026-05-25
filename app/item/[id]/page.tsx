@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import type { Item } from "@/lib/db";
-import { parseImages } from "@/lib/db";
+import type { Item } from "@/lib/types";
+import { parseImages } from "@/lib/types";
 
 export default function ItemPage() {
   const { id } = useParams<{ id: string }>();
