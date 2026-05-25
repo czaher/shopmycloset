@@ -5,8 +5,8 @@ import { sendClaimNotification } from "@/lib/email";
 export async function POST(req: NextRequest) {
   const { itemId, claimerName, contactInfo } = await req.json();
 
-  if (!itemId || !claimerName?.trim() || !contactInfo?.trim()) {
-    return NextResponse.json({ error: "All fields are required." }, { status: 400 });
+  if (!itemId || !claimerName?.trim()) {
+    return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
 
   const database = db();
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   database.prepare("UPDATE items SET status = 'reserved' WHERE id = ?").run(itemId);
   database
     .prepare("INSERT INTO claims (item_id, claimer_name, contact_info) VALUES (?, ?, ?)")
-    .run(itemId, claimerName.trim(), contactInfo.trim());
+    .run(itemId, claimerName.trim(), contactInfo?.trim() || '');
 
   // Fire-and-forget email — don't block the response
   sendClaimNotification({

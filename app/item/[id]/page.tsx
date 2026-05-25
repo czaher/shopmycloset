@@ -196,14 +196,13 @@ export default function ItemPage() {
 
                     <div>
                       <label className='text-xs font-medium text-muted-brown uppercase tracking-wide block mb-1'>
-                        How to reach you
+                        How to reach you <span className='normal-case font-normal'>(optional)</span>
                       </label>
                       <input
                         type='text'
                         value={contact}
                         onChange={(e) => setContact(e.target.value)}
                         placeholder="In case I don't have your info"
-                        required
                         className='w-full border border-warm-beige rounded-xl px-4 py-2.5 text-sm bg-white text-warm-brown placeholder-muted-brown/60 focus:outline-none focus:border-terra transition-colors'
                       />
                     </div>
